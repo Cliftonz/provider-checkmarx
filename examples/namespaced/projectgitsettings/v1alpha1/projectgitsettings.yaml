@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: 2026 The provider-checkmarx authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: example-projectgitsettings-key
+  namespace: default
+  annotations:
+    meta.upbound.io/example-id: projectgitsettings/v1alpha1/projectgitsettings
+type: Opaque
+stringData:
+  privateKey: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    replace-with-a-deploy-key
+    -----END OPENSSH PRIVATE KEY-----
+---
+apiVersion: project.checkmarx.m.clifton.quest/v1alpha1
+kind: Project
+metadata:
+  name: example-projectgitsettings-project
+  namespace: default
+  annotations:
+    meta.upbound.io/example-id: projectgitsettings/v1alpha1/projectgitsettings
+spec:
+  providerConfigRef:
+    kind: ProviderConfig
+    name: default
+  forProvider:
+    name: example-projectgitsettings-project
+---
+apiVersion: projectgitsettings.checkmarx.m.clifton.quest/v1alpha1
+kind: ProjectGitSettings
+metadata:
+  name: example-projectgitsettings
+  namespace: default
+  annotations:
+    meta.upbound.io/example-id: projectgitsettings/v1alpha1/projectgitsettings
+spec:
+  providerConfigRef:
+    kind: ProviderConfig
+    name: default
+  forProvider:
+    projectIdRef:
+      name: example-projectgitsettings-project
+    url: git@github.com:example/app.git
+    branch: main
+    privateKey:
+      name: example-projectgitsettings-key
+      key: privateKey

@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 The provider-checkmarx authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: accessassignment.checkmarx.m.clifton.quest/v1alpha1
+kind: AccessAssignment
+metadata:
+  name: example-accessassignment
+  namespace: default
+spec:
+  providerConfigRef:
+    kind: ProviderConfig
+    name: default
+  forProvider:
+    entityID: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+    entityType: group
+    entityRoles:
+      - name: ast-scanner
+    resourceType: project
+    resourceID: c56a4180-65aa-42ec-a945-5fd21dec0538

@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 The provider-checkmarx authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: checkmarx-creds
+  namespace: default
+type: Opaque
+stringData:
+  # Regional tenants carry a host prefix such as eu., for example https://eu.ast.checkmarx.net.
+  credentials: |
+    {"baseUrl": "<base_url>", "iamUrl": "<iam_url>", "tenant": "<tenant>", "apiKey": "<api_key>"}
+---
+apiVersion: checkmarx.m.clifton.quest/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+  namespace: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      name: checkmarx-creds
+      namespace: default
+      key: credentials

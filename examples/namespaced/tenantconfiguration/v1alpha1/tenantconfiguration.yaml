@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 The provider-checkmarx authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: tenantconfiguration.checkmarx.m.clifton.quest/v1alpha1
+kind: TenantConfiguration
+metadata:
+  name: example-tenantconfiguration
+  namespace: default
+  annotations:
+    meta.upbound.io/example-id: tenantconfiguration/v1alpha1/tenantconfiguration
+spec:
+  providerConfigRef:
+    kind: ProviderConfig
+    name: default
+  forProvider:
+    entries:
+      - key: scan.config.sast.presetName
+        value: ASA Premium

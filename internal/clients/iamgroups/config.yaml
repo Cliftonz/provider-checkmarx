@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 The provider-checkmarx authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+package: iamgroups
+output: client.gen.go
+generate:
+  models: true
+  client: true
+output-options:
+  user-templates:
+    imports.tmpl: ../imports.tmpl
+  include-operation-ids:
+    - createGroup
+    - getGroup
+    - updateGroup
+    - deleteGroup

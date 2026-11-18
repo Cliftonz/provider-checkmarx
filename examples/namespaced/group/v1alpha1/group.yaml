@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 The provider-checkmarx authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: group.checkmarx.m.clifton.quest/v1alpha1
+kind: Group
+metadata:
+  name: example-group
+  namespace: default
+  annotations:
+    meta.upbound.io/example-id: group/v1alpha1/group
+spec:
+  providerConfigRef:
+    kind: ProviderConfig
+    name: default
+  forProvider:
+    name: example-group

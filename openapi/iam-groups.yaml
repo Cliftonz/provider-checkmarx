@@ -1,0 +1,76 @@
+# SPDX-FileCopyrightText: 2026 The provider-checkmarx authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+openapi: 3.0.3
+info:
+  title: Checkmarx One IAM Groups API (provisional)
+  version: provisional
+paths:
+  /auth/admin/realms/{tenant}/groups:
+    parameters:
+      - $ref: '#/components/parameters/tenant'
+    post:
+      operationId: createGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '201':
+          description: Group created; the Location header carries its URL
+  /auth/admin/realms/{tenant}/groups/{id}:
+    parameters:
+      - $ref: '#/components/parameters/tenant'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getGroup
+      responses:
+        '200':
+          description: Group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+    put:
+      operationId: updateGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '204':
+          description: Group updated
+    delete:
+      operationId: deleteGroup
+      responses:
+        '204':
+          description: Group deleted
+components:
+  parameters:
+    tenant:
+      name: tenant
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    Group:
+      type: object
+      required:
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string

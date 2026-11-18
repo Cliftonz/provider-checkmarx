@@ -1,0 +1,123 @@
+# SPDX-FileCopyrightText: 2026 The provider-checkmarx authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+openapi: 3.0.3
+info:
+  title: Checkmarx One Access Management API (provisional)
+  version: provisional
+paths:
+  /api/access-management:
+    post:
+      operationId: createAssignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentInput'
+      responses:
+        '201':
+          description: Assignment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentResponse'
+    delete:
+      operationId: deleteAssignment
+      parameters:
+        - name: entity-id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: resource-id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Assignment deleted
+  /api/access-management/entities-for:
+    get:
+      operationId: listAssignments
+      parameters:
+        - name: resource-id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: resource-type
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Assignments on the resource
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssignmentResponse'
+components:
+  schemas:
+    Role:
+      type: object
+      required:
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    AssignmentInput:
+      type: object
+      required:
+        - entityID
+        - entityType
+        - entityRoles
+        - resourceType
+        - resourceID
+      properties:
+        entityID:
+          type: string
+          format: uuid
+        entityType:
+          type: string
+        entityRoles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+        resourceType:
+          type: string
+        resourceID:
+          type: string
+          format: uuid
+    AssignmentResponse:
+      type: object
+      properties:
+        entityID:
+          type: string
+          format: uuid
+        entityType:
+          type: string
+        entityName:
+          type: string
+        entityRoles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+        resourceID:
+          type: string
+          format: uuid
+        resourceType:
+          type: string
+        resourceName:
+          type: string

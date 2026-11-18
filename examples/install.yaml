@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 The provider-checkmarx authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-checkmarx
+spec:
+  package: xpkg.upbound.io/cliftonz/provider-checkmarx:v0.1.0

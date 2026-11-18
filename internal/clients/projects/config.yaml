@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 The provider-checkmarx authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+package: projects
+output: client.gen.go
+generate:
+  models: true
+  client: true
+output-options:
+  user-templates:
+    imports.tmpl: ../imports.tmpl
+  include-operation-ids:
+    - createProject
+    - getProject
+    - updateProject
+    - deleteProject
+    - getProjectGitSettings
+    - setProjectGitSettings

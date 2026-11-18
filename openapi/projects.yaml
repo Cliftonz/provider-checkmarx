@@ -1,0 +1,174 @@
+# SPDX-FileCopyrightText: 2026 The provider-checkmarx authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+openapi: 3.0.3
+info:
+  title: Checkmarx One Projects API (provisional)
+  version: provisional
+paths:
+  /api/projects:
+    post:
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectInput'
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+  /api/projects/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      operationId: getProject
+      responses:
+        '200':
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+    put:
+      operationId: updateProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectInput'
+      responses:
+        '204':
+          description: Project updated
+    delete:
+      operationId: deleteProject
+      responses:
+        '204':
+          description: Project deleted
+  /api/projects/{id}/sourceCode/remoteSettings/git:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      operationId: getProjectGitSettings
+      responses:
+        '200':
+          description: Git remote settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitSettings'
+    post:
+      operationId: setProjectGitSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GitSettingsInput'
+      responses:
+        '204':
+          description: Git remote settings set
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    ProjectInput:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        repoUrl:
+          type: string
+        mainBranch:
+          type: string
+        origin:
+          type: string
+        scmRepoId:
+          type: string
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+        criticality:
+          type: integer
+        privatePackage:
+          type: boolean
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+        repoUrl:
+          type: string
+        mainBranch:
+          type: string
+        origin:
+          type: string
+        scmRepoId:
+          type: string
+        criticality:
+          type: integer
+        applicationIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    GitSettingsInput:
+      type: object
+      required:
+        - url
+        - branch
+      properties:
+        url:
+          type: string
+        branch:
+          type: string
+        privateKey:
+          type: string
+    GitSettings:
+      type: object
+      required:
+        - url
+        - branch
+      properties:
+        url:
+          type: string
+        branch:
+          type: string

@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 The provider-checkmarx authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[submodule "build"]
+	path = build
+	url = https://github.com/crossplane/build

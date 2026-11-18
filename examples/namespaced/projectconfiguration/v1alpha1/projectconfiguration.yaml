@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 The provider-checkmarx authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: project.checkmarx.m.clifton.quest/v1alpha1
+kind: Project
+metadata:
+  name: example-projectconfiguration-project
+  namespace: default
+  annotations:
+    meta.upbound.io/example-id: projectconfiguration/v1alpha1/projectconfiguration
+spec:
+  providerConfigRef:
+    kind: ProviderConfig
+    name: default
+  forProvider:
+    name: example-projectconfiguration-project
+---
+apiVersion: projectconfiguration.checkmarx.m.clifton.quest/v1alpha1
+kind: ProjectConfiguration
+metadata:
+  name: example-projectconfiguration
+  namespace: default
+  annotations:
+    meta.upbound.io/example-id: projectconfiguration/v1alpha1/projectconfiguration
+spec:
+  providerConfigRef:
+    kind: ProviderConfig
+    name: default
+  forProvider:
+    projectIdRef:
+      name: example-projectconfiguration-project
+    entries:
+      - key: scan.config.sast.presetName
+        value: ASA Premium

@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: 2026 The provider-checkmarx authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+openapi: 3.0.3
+info:
+  title: Checkmarx One Configuration API (provisional)
+  version: provisional
+paths:
+  /api/configuration/project:
+    parameters:
+      - name: project-id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getProjectConfiguration
+      responses:
+        '200':
+          description: Project configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationEntries'
+    patch:
+      operationId: updateProjectConfiguration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationEntries'
+      responses:
+        '204':
+          description: Project configuration updated
+  /api/configuration/tenant:
+    get:
+      operationId: getTenantConfiguration
+      responses:
+        '200':
+          description: Tenant configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationEntries'
+    patch:
+      operationId: updateTenantConfiguration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationEntries'
+      responses:
+        '204':
+          description: Tenant configuration updated
+components:
+  schemas:
+    ConfigurationEntries:
+      type: array
+      items:
+        $ref: '#/components/schemas/ConfigurationEntry'
+    ConfigurationEntry:
+      type: object
+      required:
+        - key
+        - value
+      properties:
+        key:
+          type: string
+        value:
+          type: string
