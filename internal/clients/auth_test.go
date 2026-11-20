@@ -44,6 +44,8 @@ type fakeIAM struct {
 
 const fakeTokenExpiresIn = 300
 
+const bearerToken1 = "Bearer token-1"
+
 func newFakeIAM(t *testing.T) *fakeIAM {
 	t.Helper()
 	iam := &fakeIAM{}
@@ -134,14 +136,26 @@ func connect(t *testing.T, iam *fakeIAM, api *fakeAPI, credentialFields string) 
 	return conn
 }
 
-func get(t *testing.T, conn *Connection) *http.Response {
+func request(conn *Connection, method string, body io.Reader) (int, error) {
+	req, err := http.NewRequestWithContext(context.Background(), method, conn.BaseURL+"/api/projects", body)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := conn.HTTPClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	return resp.StatusCode, nil
+}
+
+func get(t *testing.T, conn *Connection) int {
 	t.Helper()
-	resp, err := conn.HTTPClient.Get(conn.BaseURL + "/api/projects")
+	status, err := request(conn, http.MethodGet, nil)
 	if err != nil {
 		t.Fatalf("GET unexpected error: %v", err)
 	}
-	_ = resp.Body.Close()
-	return resp
+	return status
 }
 
 func assertTokenRequest(t *testing.T, got tokenRequest, wantForm url.Values) {
@@ -203,7 +217,7 @@ func TestTransportSendsBearerOnRequests(t *testing.T) {
 
 	get(t, conn)
 
-	if len(api.requests) != 1 || api.requests[0].authorization != "Bearer token-1" {
+	if len(api.requests) != 1 || api.requests[0].authorization != bearerToken1 {
 		t.Fatalf("API requests = %+v, want one with Authorization Bearer token-1", api.requests)
 	}
 }
@@ -229,7 +243,7 @@ func TestTransportReusesTokenUntilThirtySecondsBeforeExpiry(t *testing.T) {
 	if len(iam.requests) != 1 {
 		t.Fatalf("token requests = %d, want 1", len(iam.requests))
 	}
-	if api.requests[1].authorization != "Bearer token-1" {
+	if api.requests[1].authorization != bearerToken1 {
 		t.Fatalf("second Authorization = %q, want Bearer token-1", api.requests[1].authorization)
 	}
 }
@@ -261,7 +275,7 @@ func TestTransportCachesTokenPerCredentialSet(t *testing.T) {
 	if len(iam.requests) != 2 {
 		t.Fatalf("token requests = %d, want 2", len(iam.requests))
 	}
-	if got := []string{api.requests[0].authorization, api.requests[1].authorization, api.requests[2].authorization}; got[0] != "Bearer token-1" || got[1] != "Bearer token-1" || got[2] != "Bearer token-2" {
+	if got := []string{api.requests[0].authorization, api.requests[1].authorization, api.requests[2].authorization}; got[0] != bearerToken1 || got[1] != bearerToken1 || got[2] != "Bearer token-2" {
 		t.Fatalf("Authorization headers = %v, want token-1, token-1, token-2", got)
 	}
 }
@@ -271,9 +285,8 @@ func TestTransportSurfacesTokenEndpointError(t *testing.T) {
 	iam.tokenResponseStatus, iam.tokenResponseBody = http.StatusUnauthorized, `{"error":"invalid_grant"}`
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 
-	resp, err := conn.HTTPClient.Get(conn.BaseURL + "/api/projects")
+	_, err := request(conn, http.MethodGet, nil)
 	if err == nil {
-		_ = resp.Body.Close()
 		t.Fatal("GET error = nil, want the token endpoint error")
 	}
 	if !strings.Contains(err.Error(), "401") || !strings.Contains(err.Error(), `{"error":"invalid_grant"}`) {
@@ -284,33 +297,28 @@ func TestTransportSurfacesTokenEndpointError(t *testing.T) {
 	}
 }
 
-func post(t *testing.T, conn *Connection, body io.Reader) *http.Response {
+func post(t *testing.T, conn *Connection, body io.Reader) int {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodPost, conn.BaseURL+"/api/projects", body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp, err := conn.HTTPClient.Do(req)
+	status, err := request(conn, http.MethodPost, body)
 	if err != nil {
 		t.Fatalf("POST unexpected error: %v", err)
 	}
-	_ = resp.Body.Close()
-	return resp
+	return status
 }
 
 func TestTransportRetriesOnceAfter401(t *testing.T) {
 	iam, api := newFakeIAM(t), newFakeAPI(t, http.StatusUnauthorized, http.StatusCreated)
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 
-	resp := post(t, conn, strings.NewReader(`{"name":"p"}`))
+	status := post(t, conn, strings.NewReader(`{"name":"p"}`))
 
-	if resp.StatusCode != http.StatusCreated {
-		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusCreated)
+	if status != http.StatusCreated {
+		t.Fatalf("status = %d, want %d", status, http.StatusCreated)
 	}
 	if len(iam.requests) != 2 {
 		t.Fatalf("token requests = %d, want 2", len(iam.requests))
 	}
-	want := []apiRequest{{authorization: "Bearer token-1", body: `{"name":"p"}`}, {authorization: "Bearer token-2", body: `{"name":"p"}`}}
+	want := []apiRequest{{authorization: bearerToken1, body: `{"name":"p"}`}, {authorization: "Bearer token-2", body: `{"name":"p"}`}}
 	if len(api.requests) != 2 || api.requests[0] != want[0] || api.requests[1] != want[1] {
 		t.Fatalf("API requests = %+v, want %+v", api.requests, want)
 	}
@@ -320,10 +328,10 @@ func TestTransportRetriesBodylessRequestAfter401(t *testing.T) {
 	iam, api := newFakeIAM(t), newFakeAPI(t, http.StatusUnauthorized)
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 
-	resp := get(t, conn)
+	status := get(t, conn)
 
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want %d", status, http.StatusOK)
 	}
 	if len(api.requests) != 2 || api.requests[1].authorization != "Bearer token-2" {
 		t.Fatalf("API requests = %+v, want a retry with Bearer token-2", api.requests)
@@ -334,10 +342,10 @@ func TestTransportReturnsSecond401(t *testing.T) {
 	iam, api := newFakeIAM(t), newFakeAPI(t, http.StatusUnauthorized, http.StatusUnauthorized, http.StatusOK)
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 
-	resp := get(t, conn)
+	status := get(t, conn)
 
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusUnauthorized)
+	if status != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", status, http.StatusUnauthorized)
 	}
 	if len(api.requests) != 2 {
 		t.Fatalf("API requests = %d, want 2", len(api.requests))
@@ -348,10 +356,10 @@ func TestTransportDoesNotRetryUnreplayableBody(t *testing.T) {
 	iam, api := newFakeIAM(t), newFakeAPI(t, http.StatusUnauthorized, http.StatusCreated)
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 
-	resp := post(t, conn, struct{ io.Reader }{strings.NewReader(`{"name":"p"}`)})
+	status := post(t, conn, struct{ io.Reader }{strings.NewReader(`{"name":"p"}`)})
 
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusUnauthorized)
+	if status != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", status, http.StatusUnauthorized)
 	}
 	if len(api.requests) != 1 || len(iam.requests) != 1 {
 		t.Fatalf("API requests = %d, token requests = %d, want 1 and 1", len(api.requests), len(iam.requests))
@@ -362,10 +370,10 @@ func TestTransportPassesThrough429(t *testing.T) {
 	iam, api := newFakeIAM(t), newFakeAPI(t, http.StatusTooManyRequests, http.StatusOK)
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 
-	resp := get(t, conn)
+	status := get(t, conn)
 
-	if resp.StatusCode != http.StatusTooManyRequests {
-		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusTooManyRequests)
+	if status != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want %d", status, http.StatusTooManyRequests)
 	}
 	if len(api.requests) != 1 || len(iam.requests) != 1 {
 		t.Fatalf("API requests = %d, token requests = %d, want 1 and 1", len(api.requests), len(iam.requests))
@@ -377,9 +385,8 @@ func TestTransportSurfacesReexchangeErrorAfter401(t *testing.T) {
 	iam.tokenResponseStatus, iam.tokenResponseBody, iam.successfulResponsesBeforeFailure = http.StatusServiceUnavailable, "iam down", 1
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 
-	resp, err := conn.HTTPClient.Get(conn.BaseURL + "/api/projects")
+	_, err := request(conn, http.MethodGet, nil)
 	if err == nil {
-		_ = resp.Body.Close()
 		t.Fatal("GET error = nil, want the token endpoint error")
 	}
 	if !strings.Contains(err.Error(), "503") || !strings.Contains(err.Error(), "iam down") {
@@ -395,9 +402,8 @@ func TestTransportSurfacesMalformedTokenResponse(t *testing.T) {
 	iam.tokenResponseStatus, iam.tokenResponseBody = http.StatusOK, "not json"
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 
-	resp, err := conn.HTTPClient.Get(conn.BaseURL + "/api/projects")
+	_, err := request(conn, http.MethodGet, nil)
 	if err == nil {
-		_ = resp.Body.Close()
 		t.Fatal("GET error = nil, want the token response decode error")
 	}
 	var syntaxErr *json.SyntaxError
@@ -414,9 +420,8 @@ func TestTransportSurfacesUnreachableIAM(t *testing.T) {
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 	iam.server.Close()
 
-	resp, err := conn.HTTPClient.Get(conn.BaseURL + "/api/projects")
+	_, err := request(conn, http.MethodGet, nil)
 	if err == nil {
-		_ = resp.Body.Close()
 		t.Fatal("GET error = nil, want the IAM transport error")
 	}
 	var opErr *net.OpError
@@ -433,9 +438,8 @@ func TestTransportRejectsTokenResponseWithoutAccessToken(t *testing.T) {
 	iam.tokenResponseStatus, iam.tokenResponseBody = http.StatusOK, `{"expires_in":3600}`
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 
-	resp, err := conn.HTTPClient.Get(conn.BaseURL + "/api/projects")
+	_, err := request(conn, http.MethodGet, nil)
 	if err == nil {
-		_ = resp.Body.Close()
 		t.Fatal("GET error = nil, want a missing access_token error")
 	}
 	if !strings.Contains(err.Error(), "/protocol/openid-connect/token") || !strings.Contains(err.Error(), "access_token is missing") {
@@ -493,12 +497,9 @@ func TestTransportExchangesOnceForConcurrentRequests(t *testing.T) {
 	var wg sync.WaitGroup
 	for range 10 {
 		wg.Go(func() {
-			resp, err := conn.HTTPClient.Get(conn.BaseURL + "/api/projects")
-			if err != nil {
+			if _, err := request(conn, http.MethodGet, nil); err != nil {
 				t.Error(err)
-				return
 			}
-			_ = resp.Body.Close()
 		})
 	}
 	wg.Wait()
@@ -541,12 +542,14 @@ func TestTransportClosesRequestBodyWhenTokenExchangeFails(t *testing.T) {
 	iam.tokenResponseStatus, iam.tokenResponseBody = http.StatusInternalServerError, "boom"
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 	body := &closeRecorder{Reader: strings.NewReader(`{"name":"p"}`)}
-	req, err := http.NewRequest(http.MethodPost, conn.BaseURL+"/api/projects", body)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, conn.BaseURL+"/api/projects", body)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := conn.HTTPClient.Transport.RoundTrip(req); err == nil {
+	resp, err := conn.HTTPClient.Transport.RoundTrip(req)
+	if err == nil {
+		_ = resp.Body.Close()
 		t.Fatal("RoundTrip() error = nil, want the token endpoint error")
 	}
 	if !body.closed {
@@ -559,13 +562,13 @@ func TestTransportEvictsRejectedTokenWhenReexchangeFails(t *testing.T) {
 	iam.tokenResponseStatus, iam.tokenResponseBody, iam.successfulResponsesBeforeFailure = http.StatusServiceUnavailable, "iam down", 1
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 
-	if _, err := conn.HTTPClient.Get(conn.BaseURL + "/api/projects"); err == nil {
+	if _, err := request(conn, http.MethodGet, nil); err == nil {
 		t.Fatal("first GET error = nil, want the re-exchange error")
 	}
 	if len(iam.requests) != 2 {
 		t.Fatalf("token requests after the failed re-exchange = %d, want 2", len(iam.requests))
 	}
-	if _, err := conn.HTTPClient.Get(conn.BaseURL + "/api/projects"); err == nil {
+	if _, err := request(conn, http.MethodGet, nil); err == nil {
 		t.Fatal("second GET error = nil, want the token endpoint error")
 	}
 	if len(iam.requests) != 3 {
@@ -576,20 +579,19 @@ func TestTransportEvictsRejectedTokenWhenReexchangeFails(t *testing.T) {
 func TestTransportReexchangesOnceForConcurrent401s(t *testing.T) {
 	iam, api := newFakeIAM(t), newFakeAPI(t)
 	iam.delay = 200 * time.Millisecond
-	api.rejectedAuthorization = "Bearer token-1"
+	api.rejectedAuthorization = bearerToken1
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 
 	var wg sync.WaitGroup
 	for range 10 {
 		wg.Go(func() {
-			resp, err := conn.HTTPClient.Get(conn.BaseURL + "/api/projects")
+			status, err := request(conn, http.MethodGet, nil)
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			_ = resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+			if status != http.StatusOK {
+				t.Errorf("status = %d, want %d", status, http.StatusOK)
 			}
 		})
 	}
@@ -616,22 +618,19 @@ func TestTransportDoesNotExchangeAgainWhenAnotherRequestJustRefreshed(t *testing
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 
 	pauseNextRead.Store(true)
-	stale := make(chan *http.Response)
+	stale := make(chan struct{})
 	go func() {
-		resp, err := conn.HTTPClient.Get(conn.BaseURL + "/api/projects")
-		if err != nil {
+		if _, err := request(conn, http.MethodGet, nil); err != nil {
 			t.Error(err)
 		}
-		stale <- resp
+		close(stale)
 	}()
 	for pauseNextRead.Load() {
 		runtime.Gosched()
 	}
 	get(t, conn)
 	close(resume)
-	if resp := <-stale; resp != nil {
-		_ = resp.Body.Close()
-	}
+	<-stale
 
 	if len(iam.requests) != 1 {
 		t.Fatalf("token requests = %d, want 1", len(iam.requests))
@@ -640,28 +639,25 @@ func TestTransportDoesNotExchangeAgainWhenAnotherRequestJustRefreshed(t *testing
 
 func TestTransportKeepsRefreshedTokenWhenAStale401ArrivesLate(t *testing.T) {
 	iam, api := newFakeIAM(t), newFakeAPI(t)
-	api.rejectedAuthorization = "Bearer token-1"
+	api.rejectedAuthorization = bearerToken1
 	api.holdFirst = make(chan struct{})
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 
-	late := make(chan *http.Response)
+	late := make(chan int)
 	go func() {
-		resp, err := conn.HTTPClient.Get(conn.BaseURL + "/api/projects")
+		status, err := request(conn, http.MethodGet, nil)
 		if err != nil {
 			t.Error(err)
 		}
-		late <- resp
+		late <- status
 	}()
 	for api.arrivals.Load() == 0 {
 		runtime.Gosched()
 	}
 	get(t, conn)
 	close(api.holdFirst)
-	if resp := <-late; resp != nil {
-		_ = resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("late request status = %d, want %d", resp.StatusCode, http.StatusOK)
-		}
+	if status := <-late; status != http.StatusOK {
+		t.Errorf("late request status = %d, want %d", status, http.StatusOK)
 	}
 
 	if len(iam.requests) != 2 {
@@ -674,9 +670,8 @@ func TestTransportSurfacesAPITransportError(t *testing.T) {
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 	api.server.Close()
 
-	resp, err := conn.HTTPClient.Get(conn.BaseURL + "/api/projects")
+	_, err := request(conn, http.MethodGet, nil)
 	if err == nil {
-		_ = resp.Body.Close()
 		t.Fatal("GET error = nil, want the API transport error")
 	}
 	var opErr *net.OpError
@@ -743,9 +738,8 @@ func TestTransportSurfacesTransportErrorOnRetry(t *testing.T) {
 	api.dropConnectionsFrom = 2
 	conn := connect(t, iam, api, `"apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"`)
 
-	resp, err := conn.HTTPClient.Get(conn.BaseURL + "/api/projects")
+	_, err := request(conn, http.MethodGet, nil)
 	if err == nil {
-		_ = resp.Body.Close()
 		t.Fatal("GET error = nil, want the retry's transport error")
 	}
 	if len(iam.requests) != 2 {

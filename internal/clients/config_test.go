@@ -24,7 +24,10 @@ import (
 	"github.com/Cliftonz/provider-checkmarx/apis/v1beta1"
 )
 
-const namespace = "team-a"
+const (
+	namespace          = "team-a"
+	providerConfigName = "default"
+)
 
 func credentialsSpec(secretNamespace string) v1beta1.ProviderConfigSpec {
 	return v1beta1.ProviderConfigSpec{Credentials: v1beta1.ProviderCredentials{
@@ -54,13 +57,13 @@ func kubeClient(t *testing.T, pc client.Object, secretNamespace, credentials str
 
 func managed(kind string) *fake.ModernManaged {
 	mg := &fake.ModernManaged{ObjectMeta: metav1.ObjectMeta{Name: "my-project", Namespace: namespace, UID: "mg-uid"}}
-	mg.SetProviderConfigReference(&xpv2.ProviderConfigReference{Kind: kind, Name: "default"})
+	mg.SetProviderConfigReference(&xpv2.ProviderConfigReference{Kind: kind, Name: providerConfigName})
 	return mg
 }
 
 func namespacedProviderConfig() *v1beta1.ProviderConfig {
 	return &v1beta1.ProviderConfig{
-		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: providerConfigName, Namespace: namespace},
 		Spec:       credentialsSpec(""),
 	}
 }
@@ -168,7 +171,7 @@ func TestNewClientTrimsTrailingSlashes(t *testing.T) {
 
 func TestNewClientNamespacedConfigUsesResourceNamespace(t *testing.T) {
 	pc := &v1beta1.ProviderConfig{
-		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: providerConfigName, Namespace: namespace},
 		Spec:       credentialsSpec("elsewhere"),
 	}
 	kube := kubeClient(t, pc, namespace, `{"baseUrl":"https://ast.checkmarx.net","iamUrl":"https://iam.checkmarx.net","tenant":"acme","apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"}`)
@@ -179,7 +182,7 @@ func TestNewClientNamespacedConfigUsesResourceNamespace(t *testing.T) {
 
 func TestNewClientClusterConfigUsesSecretRefNamespace(t *testing.T) {
 	pc := &v1beta1.ClusterProviderConfig{
-		ObjectMeta: metav1.ObjectMeta{Name: "default"},
+		ObjectMeta: metav1.ObjectMeta{Name: providerConfigName},
 		Spec:       credentialsSpec("crossplane-system"),
 	}
 	kube := kubeClient(t, pc, "crossplane-system", `{"baseUrl":"https://ast.checkmarx.net","iamUrl":"https://iam.checkmarx.net","tenant":"acme","apiKey":"h.eyJzdWIiOiJ1c2VyIn0.s"}`)
@@ -197,7 +200,7 @@ func TestNewClientTracksProviderConfigUsage(t *testing.T) {
 	if err := kube.List(context.Background(), usages); err != nil {
 		t.Fatal(err)
 	}
-	if len(usages.Items) != 1 || usages.Items[0].ProviderConfigReference.Name != "default" {
+	if len(usages.Items) != 1 || usages.Items[0].ProviderConfigReference.Name != providerConfigName {
 		t.Fatalf("ProviderConfigUsages = %+v, want one usage of ProviderConfig default", usages.Items)
 	}
 }

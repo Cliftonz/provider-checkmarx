@@ -26,6 +26,7 @@ import (
 )
 
 const (
+	appName = "payments"
 	appID   = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 	appPath = "/api/applications/" + appID
 	remote  = `{"id":"3fa85f64-5717-4562-b3fc-2c963f66afa6","name":"payments","description":"Payments","criticality":3,"type":"standard",` +
@@ -68,7 +69,7 @@ func application(externalName string, fp v1alpha1.ApplicationParameters) *v1alph
 
 func fullSpec() v1alpha1.ApplicationParameters {
 	return v1alpha1.ApplicationParameters{
-		Name:        "payments",
+		Name:        appName,
 		Description: ptr("Payments"),
 		Criticality: ptr(3),
 		Rules:       []v1alpha1.ApplicationRule{{Type: "project.name.in", Value: "pay-api;pay-web"}},
@@ -79,7 +80,7 @@ func fullSpec() v1alpha1.ApplicationParameters {
 
 func fullBody() map[string]any {
 	return map[string]any{
-		"name":        "payments",
+		"name":        appName,
 		"description": "Payments",
 		"criticality": float64(3),
 		"type":        "standard",
@@ -125,7 +126,7 @@ func TestObserveNotFoundDoesNotExist(t *testing.T) {
 
 func TestObserveExternalNameNotUUIDIsAnError(t *testing.T) {
 	api := &fakeAPI{}
-	_, err := connectTo(t, api).Observe(t.Context(), application("payments", fullSpec()))
+	_, err := connectTo(t, api).Observe(t.Context(), application(appName, fullSpec()))
 	if err == nil || !strings.Contains(err.Error(), `"payments"`) {
 		t.Errorf("error = %v, want an error naming the external name", err)
 	}
@@ -181,7 +182,7 @@ func TestObserveExistingApplicationIsAvailableAndUpToDate(t *testing.T) {
 
 func TestObserveLateInitializesOmittedFields(t *testing.T) {
 	api := &fakeAPI{status: http.StatusOK, response: remote}
-	cr := application(appID, v1alpha1.ApplicationParameters{Name: "payments"})
+	cr := application(appID, v1alpha1.ApplicationParameters{Name: appName})
 	got, err := connectTo(t, api).Observe(t.Context(), cr)
 	if err != nil {
 		t.Fatal(err)
@@ -197,7 +198,7 @@ func TestObserveLateInitializesOmittedFields(t *testing.T) {
 
 func TestObserveRemoteWithoutOptionalFieldsDoesNotLateInitialize(t *testing.T) {
 	api := &fakeAPI{status: http.StatusOK, response: `{"id":"3fa85f64-5717-4562-b3fc-2c963f66afa6","name":"payments","rules":[],"tags":{}}`}
-	cr := application(appID, v1alpha1.ApplicationParameters{Name: "payments"})
+	cr := application(appID, v1alpha1.ApplicationParameters{Name: appName})
 	got, err := connectTo(t, api).Observe(t.Context(), cr)
 	if err != nil {
 		t.Fatal(err)
@@ -206,7 +207,7 @@ func TestObserveRemoteWithoutOptionalFieldsDoesNotLateInitialize(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("observation = %+v, want %+v", got, want)
 	}
-	if !reflect.DeepEqual(cr.Spec.ForProvider, v1alpha1.ApplicationParameters{Name: "payments"}) {
+	if !reflect.DeepEqual(cr.Spec.ForProvider, v1alpha1.ApplicationParameters{Name: appName}) {
 		t.Errorf("forProvider = %+v, want only name", cr.Spec.ForProvider)
 	}
 }
@@ -255,10 +256,10 @@ func TestCreatePostsApplicationAndSetsExternalNameFromID(t *testing.T) {
 
 func TestCreateSendsOnlyNameWhenOptionalFieldsOmitted(t *testing.T) {
 	api := &fakeAPI{status: http.StatusCreated, response: `{"id":"3fa85f64-5717-4562-b3fc-2c963f66afa6","name":"payments"}`}
-	if _, err := connectTo(t, api).Create(t.Context(), application("", v1alpha1.ApplicationParameters{Name: "payments"})); err != nil {
+	if _, err := connectTo(t, api).Create(t.Context(), application("", v1alpha1.ApplicationParameters{Name: appName})); err != nil {
 		t.Fatal(err)
 	}
-	assertReceived(t, api, request{Method: http.MethodPost, Path: "/api/applications", Body: map[string]any{"name": "payments"}})
+	assertReceived(t, api, request{Method: http.MethodPost, Path: "/api/applications", Body: map[string]any{"name": appName}})
 }
 
 func TestCreateDuplicateNameSurfacesAPIError(t *testing.T) {
@@ -373,7 +374,7 @@ func TestSuccessWithoutExpectedBodyIsAnError(t *testing.T) {
 
 func TestObserveRuleWithoutIDLeavesIDEmpty(t *testing.T) {
 	api := &fakeAPI{status: http.StatusOK, response: `{"id":"3fa85f64-5717-4562-b3fc-2c963f66afa6","name":"payments","rules":[{"type":"project.name.in","value":"pay-api"}]}`}
-	cr := application(appID, v1alpha1.ApplicationParameters{Name: "payments"})
+	cr := application(appID, v1alpha1.ApplicationParameters{Name: appName})
 	if _, err := connectTo(t, api).Observe(t.Context(), cr); err != nil {
 		t.Fatal(err)
 	}
@@ -385,7 +386,7 @@ func TestObserveRuleWithoutIDLeavesIDEmpty(t *testing.T) {
 
 func TestObserveResponseWithoutIDTakesIDFromExternalName(t *testing.T) {
 	api := &fakeAPI{status: http.StatusOK, response: `{"name":"payments"}`}
-	cr := application(appID, v1alpha1.ApplicationParameters{Name: "payments"})
+	cr := application(appID, v1alpha1.ApplicationParameters{Name: appName})
 	got, err := connectTo(t, api).Observe(t.Context(), cr)
 	if err != nil {
 		t.Fatal(err)
@@ -400,20 +401,20 @@ func TestObserveResponseWithoutIDTakesIDFromExternalName(t *testing.T) {
 }
 
 func TestEmptyCollectionsAreOmitted(t *testing.T) {
-	empty := v1alpha1.ApplicationParameters{Name: "payments", Rules: []v1alpha1.ApplicationRule{}, Tags: map[string]string{}}
+	empty := v1alpha1.ApplicationParameters{Name: appName, Rules: []v1alpha1.ApplicationRule{}, Tags: map[string]string{}}
 	t.Run("Create", func(t *testing.T) {
 		api := &fakeAPI{status: http.StatusCreated, response: `{"id":"3fa85f64-5717-4562-b3fc-2c963f66afa6","name":"payments"}`}
 		if _, err := connectTo(t, api).Create(t.Context(), application("", empty)); err != nil {
 			t.Fatal(err)
 		}
-		assertReceived(t, api, request{Method: http.MethodPost, Path: "/api/applications", Body: map[string]any{"name": "payments"}})
+		assertReceived(t, api, request{Method: http.MethodPost, Path: "/api/applications", Body: map[string]any{"name": appName}})
 	})
 	t.Run("Update", func(t *testing.T) {
 		api := &fakeAPI{status: http.StatusNoContent}
 		if _, err := connectTo(t, api).Update(t.Context(), application(appID, empty)); err != nil {
 			t.Fatal(err)
 		}
-		assertReceived(t, api, request{Method: http.MethodPut, Path: appPath, Body: map[string]any{"name": "payments"}})
+		assertReceived(t, api, request{Method: http.MethodPut, Path: appPath, Body: map[string]any{"name": appName}})
 	})
 	t.Run("ObserveAgainstRemoteWithout", func(t *testing.T) {
 		api := &fakeAPI{status: http.StatusOK, response: `{"name":"payments"}`}

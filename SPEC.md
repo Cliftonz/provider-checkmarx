@@ -192,7 +192,7 @@ The `crossplane/build` submodule provides the multi-arch image and `.xpkg` build
 
 ## 8. CI/CD pipelines
 
-All third-party actions are pinned by commit SHA.
+All third-party actions are pinned by commit SHA. The `.golangci.yml` differs from opencve's in two places: `prealloc` is disabled and `gocyclo` has a minimum complexity of 20, because both contradict the minimalism rule and the ruled control flow.
 
 | Workflow | Trigger | Outcome |
 |---|---|---|

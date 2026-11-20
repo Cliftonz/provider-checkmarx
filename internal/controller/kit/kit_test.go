@@ -6,6 +6,7 @@ package kit
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -234,7 +235,11 @@ func TestConnectHandsConnectionToExternal(t *testing.T) {
 	if got.BaseURL != api.URL || got.IAMURL != iam.URL || got.Tenant != tenant {
 		t.Fatalf("Connection = %+v, want baseUrl %s, iamUrl %s, tenant %s", got, api.URL, iam.URL, tenant)
 	}
-	resp, err := got.HTTPClient.Get(got.BaseURL + "/api/projects")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, got.BaseURL+"/api/projects", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := got.HTTPClient.Do(req)
 	if err != nil {
 		t.Fatalf("GET unexpected error: %v", err)
 	}
